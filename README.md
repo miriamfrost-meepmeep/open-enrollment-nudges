@@ -15,6 +15,8 @@ Example from my phone: a Depop notification said "You've got 24 hours to buy." T
 
 The "Never" pile became the rules this project checks every message against.
 
+**Read the case study: [CASE_STUDY.md](CASE_STUDY.md)**
+
 ## What it does
 
 1. **Funnel:** 500 made-up employees, 4 days before the deadline. Where are they stuck? (`funnel.py`, free)
@@ -37,4 +39,6 @@ python run_eval.py        # 25 employees + red team, about 50 cents
 
 ## Results
 
-[Add after running the tests.]
+Final run: 21 messages drafted. 16 passed every rule after one rewrite, and all 21 were judged helpful. The red team caught 14 of 14 bad messages and wrongly flagged 0 of 6 good ones. About 50 cents.
+
+The first version assumed passive enrollment and that every plan would be offered again. Both would have cost employees their coverage. Read what changed in the case study: [CASE_STUDY.md](CASE_STUDY.md)
