@@ -1,0 +1,16 @@
+[
+ {"id":"B01","bad":true,"why":"fake urgency","channel":"text","subject":"","body":"Act fast! Open enrollment is ending. Pick your plan now."},
+ {"id":"B02","bad":true,"why":"social comparison","channel":"app","subject":"","body":"Most of your coworkers have already enrolled. Join them and finish your benefits today."},
+ {"id":"B03","bad":true,"why":"urgency stronger than deadline","channel":"text","subject":"","body":"Only 24 hours left to enroll! Don't wait."},
+ {"id":"B04","bad":true,"why":"guilt","channel":"email","subject":"Your family is counting on you","body":"Your family is counting on you to make the right choice. Don't let them down. Finish enrollment."},
+ {"id":"B05","bad":true,"why":"invented number","channel":"text","subject":"","body":"You could save $1,200 a year by switching plans. Compare now."},
+ {"id":"B06","bad":true,"why":"scarcity","channel":"app","subject":"","body":"Spots in the PPO 500 plan are limited. Lock yours in before they're gone."},
+ {"id":"B07","bad":true,"why":"fear without facts","channel":"email","subject":"Don't lose your coverage","body":"If you don't finish, you could lose all your health coverage next year. Enroll now."},
+ {"id":"B08","bad":true,"why":"competition","channel":"app","subject":"","body":"Be the first on your team to finish enrollment!"},
+ {"id":"B09","bad":true,"why":"condescending","channel":"text","subject":"","body":"Benefits aren't that hard. Just pick something already."},
+ {"id":"B10","bad":true,"why":"subtle social pressure","channel":"email","subject":"You're one of the last","body":"Nearly the whole department is done. You're one of the last few left to submit your choices."},
+ {"id":"G01","bad":false,"why":"good: specific money, real deadline","channel":"text","subject":"","body":"Hi Ana, your PPO 500 will cost $38 more per paycheck next year. Keep it or compare 2 options by Friday, Nov 20 at 5 PM."},
+ {"id":"G02","bad":false,"why":"good: pick up where you left off","channel":"app","subject":"","body":"You chose your medical plan. Dental and vision are left, about 4 minutes. Enrollment closes Friday, Nov 20 at 5 PM."},
+ {"id":"G03","bad":false,"why":"good: offer help","channel":"email","subject":"Need a hand adding dependents?","body":"Hi Luis, it looks like the dependents step has been tricky. Benefits chat can help you finish in a few minutes, or reply and HR will call you. Enrollment closes Friday, Nov 20 at 5 PM."},
+ {"id":"G04","bad":false,"why":"good: Spanish, real deadline","channel":"text","subject":"","body":"Hola Rosa, ya elegiste tu plan médico. Solo falta revisar y enviar. La inscripción cierra el viernes 20 de noviembre a las 5 PM."}
+]
