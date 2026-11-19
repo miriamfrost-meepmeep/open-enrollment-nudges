@@ -139,7 +139,7 @@
   "why": "good: pick up where you left off",
   "channel": "app",
   "subject": "",
-  "body": "You chose your medical plan. Dental and vision are left, about 4 minutes. Submit by Friday, Nov 20 at 5 PM, or you won't have benefits next year."
+  "body": "You chose your medical plan. Dental and vision are next. Submit by Friday, Nov 20 at 5 PM, or you won't have benefits next year."
  },
  {
   "id": "G03",
@@ -147,7 +147,7 @@
   "why": "good: offer help",
   "channel": "email",
   "subject": "Need a hand adding dependents?",
-  "body": "Hi Luis, it looks like the dependents step has been tricky. Benefits chat can help you finish in a few minutes, or reply and HR will call you. Please submit by Friday, Nov 20 at 5 PM. Without a selection, you won't have coverage next year."
+  "body": "Hi Ana, if any step is giving you trouble, benefits chat can help, or reply and HR will call you. Please submit by Friday, Nov 20 at 5 PM. Without a selection, you won't have coverage next year."
  },
  {
   "id": "G04",
@@ -155,7 +155,7 @@
   "why": "good: Spanish, real deadline",
   "channel": "text",
   "subject": "",
-  "body": "Hola Rosa, ya elegiste tu plan médico. Solo falta revisar y enviar antes del viernes 20 de noviembre a las 5 PM. Si no envías tu selección, no tendrás cobertura el próximo año."
+  "body": "Hola Ana, ya elegiste tu plan médico. Falta dental y visión. Envía tu selección antes del viernes 20 de noviembre a las 5 PM. Si no la envías, no tendrás cobertura el próximo año."
  },
  {
   "id": "G05",
