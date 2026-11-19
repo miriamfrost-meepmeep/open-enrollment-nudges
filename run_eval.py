@@ -4,7 +4,7 @@
 
 Part 1: draft nudges for 25 at-risk employees (5 per stalled step, including Spanish speakers).
         How many pass my rules on the first draft? After one rewrite? Are they helpful?
-Part 2: red team. 10 known-bad and 4 known-good messages. Does the checker catch the bad
+Part 2: red team. 14 known-bad and 6 known-good messages. Does the checker catch the bad
         ones without flagging the good ones? Which layer catches what: code rules or the model?
 """
 import json
@@ -33,16 +33,31 @@ def sample():
 def part1():
     print("Part 1: drafting nudges for 25 at-risk employees\n")
     rows, cost = [], 0.0
+    errors = 0
     for p in sample():
-        r = nudges.build(p)
+        try:
+            r = nudges.build(p)
+        except nudges.BadReply as e:
+            errors += 1
+            cost += e.cost
+            print(f"\n{p['id']}  ERROR: {e}")
+            continue
         nudges.show(r)
         rows.append(r)
         cost += r["cost"]
+    skipped = [r for r in rows if r.get("skipped")]
+    rows = [r for r in rows if not r.get("skipped")]
     first = sum(r["first"]["check"]["passed"] for r in rows)
     final = sum(r["final"]["check"]["passed"] for r in rows)
     helpful = sum(r["final"]["check"]["helpful"] for r in rows)
     broke = Counter(v.split(":")[0] for r in rows for v in r["first"]["check"]["hard"] + r["first"]["check"]["soft"])
-    print(f"\n   passed my rules on the first draft:  {first}/{len(rows)}")
+    ended = sum(1 for r in rows if r["strategy"] == "plan_ended")
+    print(f"\n   enrollment type: {nudges.ENROLLMENT}")
+    print(f"   current plan discontinued: {ended} of {len(rows)} drafted")
+    print(f"   at the reminder cap, sent to HR instead: {len(skipped)}")
+    if errors:
+        print(f"   errors (bad model reply): {errors}")
+    print(f"   passed my rules on the first draft:  {first}/{len(rows)}")
     print(f"   passed after one rewrite:            {final}/{len(rows)}")
     print(f"   judged helpful:                      {helpful}/{len(rows)}")
     if broke:
@@ -59,10 +74,12 @@ def part2():
                    "similar_plan": "PPO 1000", "similar_plan_cost_next_year": 144,
                    "preferred_channel": "text", "reminders_sent": 1}
     monday_9am = datetime(2026, 11, 16, 9, 0)
+    nudges.ENROLLMENT = "active"
     cases = json.load(open(ROOT / "data" / "bad_nudges.json"))
     rows, cost = [], 0.0
     for c in cases:
-        result, cst = nudges.check(test_person, c, send_at=monday_9am)
+        person = {**test_person, **c.get("person", {})}
+        result, cst = nudges.check(person, c, send_at=monday_9am)
         cost += cst
         flagged = not result["passed"]
         ok = flagged == c["bad"]

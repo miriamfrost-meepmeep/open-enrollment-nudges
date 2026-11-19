@@ -16,6 +16,12 @@ ROOT = Path(__file__).resolve().parent
 WRITER_MODEL = "claude-sonnet-5"
 CHECKER_MODEL = "claude-haiku-4-5"
 PEOPLE = {p["id"]: p for p in json.load(open(ROOT / "data" / "employees.json"))}
+LINEUP = json.load(open(ROOT / "data" / "plans_next_year.json"))
+OFFERED = set(LINEUP["offered"])
+
+
+def plan_offered(p):
+    return p["current_plan"] in OFFERED
 WRITER = (ROOT / "prompts" / "writer.md").read_text()
 CHECKER = (ROOT / "prompts" / "checker.md").read_text()
 
@@ -23,8 +29,19 @@ CHECKER = (ROOT / "prompts" / "checker.md").read_text()
 NOW = datetime.fromisoformat(os.environ.get("NOW", "2026-11-16T08:30"))
 DEADLINE = datetime(2026, 11, 20, 17, 0)
 DEADLINE_TEXT = "Friday, Nov 20 at 5 PM"
+# Active: no selection = no benefits next year. Passive: current plan carries over.
+ENROLLMENT = os.environ.get("ENROLLMENT", "active")
+CONSEQUENCE_TEXT = {"active": "If no selection is submitted by the deadline, the employee has NO medical, dental or vision coverage next year. The current plan does not carry over.",
+                    "passive": "If no selection is submitted, the current plan carries over at next year's price."}[ENROLLMENT]
+MAX_REMINDERS = 3
 
 _client = None
+
+
+class BadReply(Exception):
+    def __init__(self, msg, cost):
+        super().__init__(msg)
+        self.cost = cost
 
 
 def client():
@@ -47,12 +64,18 @@ def risk(p):
 def strategy(p):
     """Which nudge fits where they are. One clear idea per message."""
     increase = p["cost_per_paycheck_next_year"] - p["cost_per_paycheck_now"]
+    if not plan_offered(p):
+        return "plan_ended", (f"Their current plan, {p['current_plan']}, is not offered next year. Say so first, plainly. "
+                              "They must choose a new plan from next year's options. Never suggest re-selecting it."
+                              + (" They're also stuck on a step, so offer help." if p["step"] == "stuck_dependents" else ""))
     if p["step"] == "stuck_dependents" or p["attempts_on_step"] >= 3:
         return "offer_help", "They're stuck on a step. Offer help first: benefits chat or an HR call."
     if p["step"] in ("not_started", "viewed_plans") and p["similar_plan_cost_next_year"]:
         return "real_money", f"Lead with the real cost change (+${increase} per paycheck) and the similar plan that costs less."
     if p["step"] in ("not_started", "viewed_plans"):
-        return "keep_or_compare", "Make it simple: keep their current plan or compare. Mention the cost change only if it isn't zero."
+        return "reselect_or_compare", ("Make it simple: re-select their current plan or compare. Mention the cost change only if it isn't zero."
+                                       if ENROLLMENT == "active" else
+                                       "Make it simple: keep their current plan or compare. Mention the cost change only if it isn't zero.")
     if p["step"] == "review":
         return "almost_done", "They're on the review page. One step left: review and submit."
     return "pick_up", "They chose medical. Pick up where they left off: dental, vision, dependents, review."
@@ -71,11 +94,20 @@ def send_time(p):
 
 def facts(p):
     keep = ["first_name", "language", "step", "days_since_active", "has_dependents", "current_plan",
-            "cost_per_paycheck_now", "cost_per_paycheck_next_year", "similar_plan", "similar_plan_cost_next_year"]
+            "cost_per_paycheck_now"]
     f = {k: p[k] for k in keep}
-    f["increase_per_paycheck"] = p["cost_per_paycheck_next_year"] - p["cost_per_paycheck_now"]
-    if p["similar_plan_cost_next_year"]:
-        f["similar_plan_saves_per_paycheck"] = p["cost_per_paycheck_next_year"] - p["similar_plan_cost_next_year"]
+    f["plans_offered_next_year"] = LINEUP["offered"]
+    f["current_plan_offered_next_year"] = plan_offered(p)
+    similar = p["similar_plan"] if p["similar_plan"] in OFFERED else None
+    if plan_offered(p):
+        f["cost_per_paycheck_next_year"] = p["cost_per_paycheck_next_year"]
+        f["increase_per_paycheck"] = p["cost_per_paycheck_next_year"] - p["cost_per_paycheck_now"]
+    if similar:
+        f["similar_plan"] = similar
+        if p["similar_plan_cost_next_year"]:
+            f["similar_plan_cost_next_year"] = p["similar_plan_cost_next_year"]
+            if plan_offered(p):
+                f["similar_plan_saves_per_paycheck"] = p["cost_per_paycheck_next_year"] - p["similar_plan_cost_next_year"]
     return f
 
 
@@ -101,17 +133,22 @@ def _call(model, system, content, schema, max_tokens):
                                  output_config={"format": {"type": "json_schema", "schema": schema}})
     rates = {WRITER_MODEL: (3, 15), CHECKER_MODEL: (1, 5)}[model]
     cost = (r.usage.input_tokens * rates[0] + r.usage.output_tokens * rates[1]) / 1e6
-    return json.loads(next(b.text for b in r.content if b.type == "text")), cost
+    text = next((b.text for b in r.content if b.type == "text"), "")
+    try:
+        return json.loads(text), cost
+    except json.JSONDecodeError:
+        raise BadReply(f"model reply wasn't valid JSON (stop reason: {r.stop_reason})", cost)
 
 
 def draft(p, feedback=None):
     name, how = strategy(p)
     content = (f"Employee facts:\n{json.dumps(facts(p), indent=1)}\n\nStrategy: {name}. {how}\n"
                f"Channel: {p['preferred_channel']}\nReal deadline: {DEADLINE_TEXT}\n"
+               f"Enrollment type: {ENROLLMENT.upper()}. {CONSEQUENCE_TEXT}\n"
                f"Days until the deadline when this is sent: {(DEADLINE.date() - send_time(p).date()).days}")
     if feedback:
         content += "\n\nYour last draft broke these rules. Rewrite it without them:\n- " + "\n- ".join(feedback)
-    out, cost = _call(WRITER_MODEL, WRITER, content, WRITE_SCHEMA, 1000)
+    out, cost = _call(WRITER_MODEL, WRITER, content, WRITE_SCHEMA, 2000)
     out["channel"] = p["preferred_channel"]
     return out, cost
 
@@ -119,8 +156,9 @@ def draft(p, feedback=None):
 def check(p, nudge, send_at=None):
     """Two layers: hard rules in code, then a cheaper model for judgment calls (tone, guilt, pressure)."""
     send_at = send_at or send_time(p)
-    hard = rules.check(p, nudge, send_at, DEADLINE)
-    content = (f"Employee facts:\n{json.dumps(facts(p), indent=1)}\nReal deadline: {DEADLINE_TEXT}\n\n"
+    hard = rules.check(p, nudge, send_at, DEADLINE, ENROLLMENT, offered=plan_offered(p), facts=facts(p))
+    content = (f"Employee facts:\n{json.dumps(facts(p), indent=1)}\nReal deadline: {DEADLINE_TEXT}\n"
+               f"Enrollment type: {ENROLLMENT.upper()}. {CONSEQUENCE_TEXT}\n\n"
                f"Message ({nudge['channel']}):\nSubject: {nudge.get('subject', '')}\n{nudge['body']}")
     soft, cost = _call(CHECKER_MODEL, CHECKER, content, CHECK_SCHEMA, 800)
     soft_found = [f"{v['rule']}: \"{v['quote']}\"" for v in soft["violations"]]
@@ -129,7 +167,11 @@ def check(p, nudge, send_at=None):
 
 
 def build(p):
-    """Draft, check, and if it fails, rewrite once with the reasons. Returns everything for the report."""
+    """Draft, check, and if it fails, rewrite once with the reasons. Returns everything for the report.
+    Anyone already at the reminder cap gets no message. They go to HR for a personal call instead."""
+    if p["reminders_sent"] >= MAX_REMINDERS:
+        return {"id": p["id"], "step": p["step"], "language": p["language"], "risk": risk(p),
+                "strategy": "hand_to_hr", "skipped": True, "cost": 0.0}
     nudge, c1 = draft(p)
     result, c2 = check(p, nudge)
     first = {"nudge": nudge, "check": result}
@@ -140,10 +182,13 @@ def build(p):
         final, cost = {"nudge": nudge2, "check": result2}, cost + c3 + c4
     return {"id": p["id"], "step": p["step"], "language": p["language"], "risk": risk(p),
             "strategy": strategy(p)[0], "send_at": send_time(p).strftime("%a %b %d, %I:%M %p"),
-            "first": first, "final": final, "revised": final is not first, "cost": round(cost, 4)}
+            "first": first, "final": final, "revised": final is not first, "skipped": False, "cost": round(cost, 4)}
 
 
 def show(r):
+    if r.get("skipped"):
+        print(f"\n{r['id']}  step: {r['step']}  risk: {r['risk']}  reminder cap reached: no message, flag for an HR call")
+        return
     n, c = r["final"]["nudge"], r["final"]["check"]
     print(f"\n{r['id']}  step: {r['step']}  risk: {r['risk']}  strategy: {r['strategy']}  "
           f"{n['channel']}, {r['send_at']}")

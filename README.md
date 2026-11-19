@@ -23,7 +23,7 @@ The "Never" pile became the rules this project checks every message against.
 4. **Timing:** weekdays at 9 AM or 12 PM only. Never 8 PM to 8 AM. No more than 3 reminders per person in total.
 5. **Draft:** Claude writes the message in the employee's language, using only their real numbers.
 6. **Check, two layers:** hard rules in code (banned phrases, invented numbers, wrong dates, quiet hours, the cap), then a cheaper model for judgment calls (guilt, condescension, subtle pressure). A message that fails gets one rewrite with the reasons.
-7. **Red team:** 10 known-bad and 4 known-good messages test whether the checker itself works.
+7. **Red team:** 14 known-bad and 6 known-good messages test whether the checker itself works.
 
 ## Run it
 
