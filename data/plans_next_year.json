@@ -1,0 +1,5 @@
+{
+ "note": "Next year's plan lineup. Made up. Plan lineups change every year; HMO Plus is discontinued in this scenario.",
+ "offered": ["PPO 500", "PPO 1000", "HDHP 2500", "HMO Basic"],
+ "discontinued": ["HMO Plus"]
+}
