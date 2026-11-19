@@ -22,7 +22,9 @@ PASSIVE_PHRASES = ["stays the same", "stay the same", "stays in place", "carries
                    "renews automatically", "automatically renew", "keep my plan", "keep your plan",
                    "do nothing", "no action needed", "no need to do anything",
                    "se mantiene", "mantener mi plan", "mantener tu plan", "sigue igual", "se renueva"]
-CONSEQUENCE = r"(no (medical |health )?(coverage|benefits)|won't have (medical |health )?(coverage|benefits)|will not have|without (coverage|benefits)|lose (your )?(coverage|benefits)|coverage (will )?end|sin (cobertura|beneficios)|no tendr[aá]s)"
+CONSEQUENCE = r"(no (medical|health|dental|vision)?[a-z ,]{0,30}(coverage|benefits)|won't have|will not have|you'll have no|without (coverage|benefits)|lose (your )?(coverage|benefits)|coverage (will )?end|sin (cobertura|beneficios)|no tendr[aá]s)"
+NEGATION = re.compile(r"(won't|will not|doesn't|does not|isn't|is not|not|no|never)\W+(\w+\W+){0,2}$")
+ENDED = r"(no longer|not (be )?offered|isn't offered|not available|isn't available|discontinued|ending|won't be available|ya no (se )?ofrece|no estar[aá] disponible)"
 
 
 REUSE = ["re-select", "reselect", "re-enroll in your", "same plan", "keep your", "keep my",
@@ -50,8 +52,10 @@ def check(p, nudge, send_at, deadline, enrollment="active", offered=True, facts=
             found.append(f"date that isn't the deadline: '{m.group(0)}'")
     if enrollment == "active":
         for phrase in PASSIVE_PHRASES:
-            if phrase in low:
-                found.append(f"says the plan carries over, but enrollment is active: '{phrase}'")
+            for m in re.finditer(re.escape(phrase), low):
+                if not NEGATION.search(low[max(0, m.start() - 30):m.start()]):   # "won't carry over" is correct
+                    found.append(f"says the plan carries over, but enrollment is active: '{phrase}'")
+                    break
         if not re.search(CONSEQUENCE, low):
             found.append("missing the required notice: no selection means no benefits next year")
     if not offered:
@@ -59,8 +63,11 @@ def check(p, nudge, send_at, deadline, enrollment="active", offered=True, facts=
             if phrase in low:
                 found.append(f"suggests reusing a plan that isn't offered next year: '{phrase}'")
         plan = p["current_plan"].lower()
-        if plan in low and not re.search(r"(no longer|not (be )?offered|discontinued|ending|won't be available|ya no (se )?ofrece|no estar[aá] disponible)", low):
+        if plan in low and not re.search(ENDED, low):
             found.append(f"mentions {p['current_plan']} without saying it's no longer offered")
+    for m in re.finditer(r"\b(20\d\d)\b", text):
+        if int(m.group(1)) not in (deadline.year, deadline.year + 1):
+            found.append(f"wrong year: {m.group(1)}")
     days_left = (deadline.date() - send_at.date()).days
     if days_left > 1 and re.search(r"\b(today|tonight|24 hours|hours left|hoy|esta noche)\b", low):
         found.append(f"urgency stronger than the real deadline ({days_left} days left)")

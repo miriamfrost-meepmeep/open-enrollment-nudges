@@ -148,7 +148,7 @@ def draft(p, feedback=None):
                f"Days until the deadline when this is sent: {(DEADLINE.date() - send_time(p).date()).days}")
     if feedback:
         content += "\n\nYour last draft broke these rules. Rewrite it without them:\n- " + "\n- ".join(feedback)
-    out, cost = _call(WRITER_MODEL, WRITER, content, WRITE_SCHEMA, 2000)
+    out, cost = _call(WRITER_MODEL, WRITER, content, WRITE_SCHEMA, 4000)
     out["channel"] = p["preferred_channel"]
     return out, cost
 
